@@ -4,7 +4,12 @@ const cors = require("cors");
 const fetch = require("node-fetch");
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: "https://collegepulse-72ac4.web.app",  // ✅ your deployed frontend
+  methods: ["POST"],
+  credentials: false
+}));
+
 app.use(express.json());
 
 app.post("/summarize", async (req, res) => {
