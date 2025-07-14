@@ -1,45 +1,51 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import bodyParser from "body-parser";
-import { Configuration, OpenAIApi } from "openai";
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import fetch from 'node-fetch';
 
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
-// ✅ ALLOW your Firebase domain
-app.use(cors({
-  origin: "https://collegepulse-72ac4.web.app"
-}));
+// Middleware
+app.use(cors());
+app.use(express.json());
 
-app.use(bodyParser.json());
-
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-const openai = new OpenAIApi(configuration);
-
-app.post("/summarize", async (req, res) => {
+// Summarization endpoint using Hugging Face
+app.post('/summarize', async (req, res) => {
   const { text } = req.body;
+
+  if (!text) {
+    return res.status(400).json({ error: 'Text is required for summarization' });
+  }
+
   try {
-    const completion = await openai.createChatCompletion({
-      model: "gpt-3.5-turbo",
-      messages: [
-        { role: "system", content: "You are a helpful assistant that summarizes short college announcements." },
-        { role: "user", content: `Summarize this update: ${text}` }
-      ],
+    const response = await fetch('https://api-inference.huggingface.co/models/facebook/bart-large-cnn', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.HF_API_KEY}`, // Set in .env
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ inputs: text })
     });
 
-    const summary = completion.data.choices[0].message.content.trim();
+    const data = await response.json();
+
+    if (data.error) {
+      return res.status(500).json({ error: data.error });
+    }
+
+    const summary = data[0]?.summary_text || 'No summary generated.';
     res.json({ summary });
-  } catch (err) {
-    console.error("OpenAI Error:", err.response?.data || err.message);
-    res.status(500).json({ error: "Failed to summarize text." });
+
+  } catch (error) {
+    console.error('Hugging Face API error:', error);
+    res.status(500).json({ error: 'Failed to summarize. Please try again later.' });
   }
 });
 
-app.listen(port, () => {
-  console.log(`✅ Server running on port ${port}`);
+// Start server
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
 });
