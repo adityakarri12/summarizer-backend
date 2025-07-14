@@ -8,11 +8,24 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
+// ✅ Allow specific origin (your Firebase hosting domain)
+const allowedOrigins = ['https://collegepulse-72ac4.web.app'];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('Not allowed by CORS'));
+    }
+  }
+}));
+
 app.use(express.json());
 
-// Summarization endpoint using Hugging Face
+// Summarization endpoint
 app.post('/summarize', async (req, res) => {
   const { text } = req.body;
 
@@ -24,7 +37,7 @@ app.post('/summarize', async (req, res) => {
     const response = await fetch('https://api-inference.huggingface.co/models/facebook/bart-large-cnn', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.HF_API_KEY}`, // Set in .env
+        Authorization: `Bearer ${process.env.HF_API_KEY}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ inputs: text })
@@ -45,7 +58,6 @@ app.post('/summarize', async (req, res) => {
   }
 });
 
-// Start server
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
